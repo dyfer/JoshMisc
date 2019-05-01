@@ -809,10 +809,14 @@ ProcEvents {
 		writeDefs.if({
 			srvrs = Server.all;
 			writeDefs = false;
-			tmp = SynthDef(\procevoutenv6253, {arg amp = 1, lag = 0.2;
-				ReplaceOut.ar(0, In.ar(0, 8) * Lag2.kr(amp, lag))				});
-			tmp.writeDefFile;
-			srvrs.do({arg me; tmp.send(me)});
+			tmp = srvrs.asArray.collect({|thisServer, inc|
+				var numCh = thisServer.options.numOutputBusChannels;
+				SynthDef(\procevoutenv6253_++numCh, {arg amp = 1, lag = 0.2;
+					ReplaceOut.ar(0, In.ar(0, numCh) * Lag2.kr(amp, lag))
+				});
+			});
+			tmp.do(_.writeDefFile);
+			srvrs.do({arg me, inc; tmp[inc].send(me)});
 			tmp = SynthDef(\procevtesttrig76234, {arg pedalin, id, dur = 2;
 					var ped;
 //					ped = RunningSum.rms(In.ar(pedalin), 0.1 * SampleRate.ir);
@@ -923,8 +927,10 @@ ProcEvents {
 					});
 				initmod.value(path, timeStamp, headerFormat, sampleFormat);
 				});
-			server.sendMsg(\s_new, \procevoutenv6253, procampsynth = server.nextNodeID, 1,
-				0, \amp, amp, \lag, lag);
+		server.sendMsg(\s_new,
+			\procevoutenv6253_++server.options.numOutputBusChannels,
+			procampsynth = server.nextNodeID, 1,
+			0, \amp, amp, \lag, lag);
 			firstevent = false;
 			});
 		stamps[event] = Main.elapsedTime - starttime;
@@ -1181,9 +1187,10 @@ ProcEvents {
 				.action_({arg button;
 					var actions;
 					firstevent.if({initmod.value;
-						server.sendMsg(\s_new, \procevoutenv6253,
-							procampsynth = server.nextNodeID, 1, 0, \amp, amp);
-						firstevent = false});
+				server.sendMsg(\s_new,
+					\procevoutenv6253_++server.options.numOutputBusChannels,
+					procampsynth = server.nextNodeID, 1, 0, \amp, amp);
+				firstevent = false});
 					actions = [{eventDict[me].release}, {eventDict[me].play}];
 					actions[button.value].value;
 					});
